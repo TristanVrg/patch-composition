@@ -1,9 +1,27 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Aug 20 16:13:14 2026
+import pandas as pd
+import speasy as spz
+from datetime import datetime, timedelta
 
-@author: tverge
-"""
+""" Get Data """
 
-import xarray as xr
+# --- Parker Solar Probe
+def get_ephemeris_psp(start, stop):
+    start_extended, stop_extended = start - timedelta(hours=1), stop + timedelta(hours=1)
+    psp_r_sun = spz.get_data("amda/psp_r_sun", start_extended, stop_extended).to_dataframe()
+    car_lon = spz.get_data("amda/psp_lon_sun", start_extended, stop_extended).to_dataframe()
+    car_lat = spz.get_data("amda/psp_lat_sun", start_extended, stop_extended).to_dataframe()
+    return psp_r_sun, car_lon, car_lat
+
+
+# --- Solar Orbiter
+def get_ephemeris_solo(start, stop):
+    return 
+
+
+""" Utils """
+
+def average(data, window): 
+    data = pd.Series(data)
+    avg = data.rolling(window=window, center=True).mean()
+    return avg
+
