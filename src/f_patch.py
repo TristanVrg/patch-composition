@@ -14,8 +14,8 @@ def get_ephemeris_psp(start, stop):
 
 
 # --- Solar Orbiter
-def get_ephemeris_solo(start, stop):
-    return 
+def get_data_solo(start, stop):
+    return
 
 
 """ Utils """
