@@ -18,7 +18,6 @@ def _load_data_pas_psp(start: datetime, stop: datetime) -> pd.DataFrame:
         .iloc[:, 0]
     )
 
-    # À adapter avec tes identifiants PSP
     vp_rtn = (
         spz.get_data(
             "amda/psp_spi_Hv",
@@ -50,7 +49,6 @@ def _load_data_pas_psp(start: datetime, stop: datetime) -> pd.DataFrame:
 def _load_data_mag_psp(start: datetime, stop: datetime) -> pd.DataFrame:
     """Load Parker Solar Probe MAG data."""
 
-    # À adapter avec ton identifiant MAG PSP
     b_rtn = (
         spz.get_data(
             "amda/psp_b_4cyc",
@@ -87,7 +85,30 @@ def _load_data_ephemeris_psp(
         .iloc[:, 0]
     )
 
+    car_lon = (
+        spz.get_data(
+            "amda/psp_lon_sun",
+            start_extended,
+            stop_extended,
+        )
+        .to_dataframe()
+        .iloc[:, 0]
+    )
+
+    car_lat = (
+        spz.get_data(
+            "amda/psp_lat_sun",
+            start_extended,
+            stop_extended,
+        )
+        .to_dataframe()
+        .iloc[:, 0]
+    )
+
+
     return pd.DataFrame({
+        "car_lon": car_lon,
+        "car_lat": car_lat,
         "r_sun": r_psp_sun,
     })
 
