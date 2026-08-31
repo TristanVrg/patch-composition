@@ -1,11 +1,14 @@
 import pandas as pd
+import xarray as xr
 import speasy as spz
+
+from pathlib  import Path
 from datetime import datetime, timedelta
 
 """ Get Data """
 
 # --- Parker Solar Probe
-def _load_data_pas_psp(start: datetime, stop: datetime) -> pd.DataFrame:
+def _load_data_spi_psp(start: datetime, stop: datetime) -> pd.DataFrame:
     """Load Parker Solar Probe proton data."""
 
     np_ = (
@@ -118,7 +121,7 @@ def load_data_psp(
     stop: datetime,
 ) -> pd.DataFrame:
 
-    data_spi = _load_data_pas_psp(start, stop)
+    data_spi = _load_data_spi_psp(start, stop)
     data_mag = _load_data_mag_psp(start, stop)
     data_eph = _load_data_ephemeris_psp(start, stop)
 
@@ -140,6 +143,29 @@ def load_data_psp(
 
 
 # --- Solar Orbiter
+def _read_velocirap_file(start, stop):
+    
+    datelist = create_datetime_list(start, stop)
+    
+    file_list = []
+    
+    # --- Load all files
+    for (start_temp, stop_temp) in datelist:
+        
+        filepath = Path('..') / f"data_velocirap/SWA_PAS_MOM_{start_temp}_{stop_temp}_1s3p.nc"
+        
+        data_temp = xr.open_dataset(filepath).to_dataframe()
+        file_list.append(data_temp)
+    
+    # --- Combine all files
+    data = pd.concat(file_list)
+    
+    # --- Keep only the requested time interval
+    data = data.loc[start:stop]
+    
+    return data
+
+    
 def _load_data_pas_solo(start: datetime, stop: datetime) -> pd.DataFrame:
     """Load Solar Orbiter PAS data from AMDA."""
 
@@ -243,14 +269,13 @@ def load_data_solo(
     velocirap: bool = False,
     filepath=None,
 ) -> pd.DataFrame:
+    
+    data_pas = (
+        _read_velocirap_file(start, stop)
+        if velocirap
+        else _load_data_pas_solo(start, stop)
+    )
 
-    # data_pas = (
-    #     _read_velocirap_file(filepath)
-    #     if velocirap
-    #     else _load_data_pas_solo(start, stop)
-    # )
-
-    data_pas = _load_data_pas_solo(start, stop)
     data_mag = _load_data_mag_solo(start, stop)
     data_eph = _load_data_ephemeris_solo(start, stop)
 
@@ -272,6 +297,24 @@ def load_data_solo(
 
 
 """ Utils """
+
+def create_datetime_list(start: datetime, stop: datetime):
+    datetime_list = []
+
+    current = start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    while current < stop:
+        next_day = current + timedelta(days=1)
+
+        # Ne pas dépasser la date de fin
+        # next_day = min(next_day, stop)
+
+        datetime_list.append((current, next_day))
+
+        current = next_day
+
+    return datetime_list
+
 
 def compute_interval_parameters(
     data: pd.DataFrame,
