@@ -1,5 +1,5 @@
 vpatch/
 __pycache__/
 .ipynb_checkpoints/
-patch_catalog.nc
+Results/
 
