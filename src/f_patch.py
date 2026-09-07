@@ -12,36 +12,32 @@ def _load_data_spi_psp(start: datetime, stop: datetime) -> pd.DataFrame:
     """Load Parker Solar Probe proton data."""
 
     np_ = (
-        spz.get_data(
-            "amda/psp_spi_Hn",
-            start,
-            stop,
-        )
+        spz.get_data("amda/psp_spi_Hn", start, stop)
         .to_dataframe()
         .iloc[:, 0]
     )
+    
+    na = (
+        spz.get_data("amda/psp_spi_an", start, stop)
+        .to_dataframe()
+        .iloc[:,0]
+    )
+    
 
     vp_rtn = (
-        spz.get_data(
-            "amda/psp_spi_Hv",
-            start,
-            stop,
-        )
+        spz.get_data("amda/psp_spi_Hv", start, stop)
         .to_dataframe()
     )
 
     tp = (
-        spz.get_data(
-            "amda/psp_spi_Hw",
-            start,
-            stop,
-        )
+        spz.get_data("amda/psp_spi_Hw", start, stop)
         .to_dataframe()
         .iloc[:, 0]
     )
 
     return pd.DataFrame({
         "Np": np_,
+        "Na": na,
         "Vp_r": vp_rtn.iloc[:, 0],
         "Vp_t": vp_rtn.iloc[:, 1],
         "Vp_n": vp_rtn.iloc[:, 2],
@@ -53,11 +49,7 @@ def _load_data_mag_psp(start: datetime, stop: datetime) -> pd.DataFrame:
     """Load Parker Solar Probe MAG data."""
 
     b_rtn = (
-        spz.get_data(
-            "amda/psp_b_4cyc",
-            start,
-            stop,
-        )
+        spz.get_data("amda/psp_b_4cyc", start, stop)
         .to_dataframe()
     )
 
@@ -152,7 +144,7 @@ def _read_velocirap_file(start, stop):
     # --- Load all files
     for (start_temp, stop_temp) in datelist:
         
-        filepath = Path('..') / f"data_velocirap/SWA_PAS_MOM_{start_temp}_{stop_temp}_1s3p.nc"
+        filepath = Path('..') / f"Results/SWA-PAS-MOM_{start_temp}_{stop_temp}_1s3p.nc"
         
         data_temp = xr.open_dataset(filepath).to_dataframe()
         file_list.append(data_temp)
@@ -468,8 +460,12 @@ def resample_dataframe(data: pd.DataFrame, new_index: pd.DatetimeIndex) -> pd.Da
     return data_interp.loc[new_index]
 
 
-def average(data, window): 
+def average(data, window):
     data = pd.Series(data)
-    avg = data.rolling(window=window, center=True).mean()
+    avg = data.rolling(
+        window=window,
+        center=True,
+        min_periods=1
+    ).mean()
     return avg
 
