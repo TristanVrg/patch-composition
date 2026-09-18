@@ -144,7 +144,7 @@ def _read_velocirap_file(start, stop):
     # --- Load all files
     for (start_temp, stop_temp) in datelist:
         
-        filepath = Path('..') / f"Results/SWA-PAS-MOM_{start_temp}_{stop_temp}_1s3p.nc"
+        filepath = Path('..') / f"Data/velocirap/SWA-PAS-MOM_{start_temp}_{stop_temp}_1s3p.nc"
         
         data_temp = xr.open_dataset(filepath).to_dataframe()
         file_list.append(data_temp)
