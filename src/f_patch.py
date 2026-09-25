@@ -1,3 +1,5 @@
+import warnings
+
 import pandas as pd
 import xarray as xr
 import speasy as spz
@@ -9,7 +11,7 @@ from datetime import datetime, timedelta
 
 # --- Parker Solar Probe
 def _load_data_spi_psp(start: datetime, stop: datetime) -> pd.DataFrame:
-    """Load Parker Solar Probe proton data."""
+    """Load Parker Solar Probe span-i proton data."""
 
     np_ = (
         spz.get_data("amda/psp_spi_Hn", start, stop)
@@ -23,7 +25,6 @@ def _load_data_spi_psp(start: datetime, stop: datetime) -> pd.DataFrame:
         .iloc[:,0]
     )
     
-
     vp_rtn = (
         spz.get_data("amda/psp_spi_Hv", start, stop)
         .to_dataframe()
@@ -258,8 +259,7 @@ def _load_data_ephemeris_solo(
 def load_data_solo(
     start: datetime,
     stop: datetime,
-    velocirap: bool = False,
-    filepath=None,
+    velocirap: bool = False
 ) -> pd.DataFrame:
     
     data_pas = (
@@ -286,6 +286,43 @@ def load_data_solo(
         [eph_res, data_pas, mag_res],
         axis=1,
     )
+
+
+def load_data(
+    start: datetime,
+    stop: datetime,
+    spacecraft: str,
+    **kwargs,
+) -> pd.DataFrame:
+    """Load spacecraft data."""
+
+    spacecraft = spacecraft.lower()
+
+    loaders = {
+        "solo": load_data_solo,
+        "psp": load_data_psp,
+    }
+
+    if spacecraft not in loaders:
+        warnings.warn(
+            f'Unknown spacecraft "{spacecraft}". '
+            "Assuming Solar Orbiter.",
+            UserWarning,
+            stacklevel=2,
+        )
+        spacecraft = "solo"
+
+    data = loaders[spacecraft](start, stop, **kwargs)
+
+    data.attrs["spacecraft"] = spacecraft
+
+    return data
+
+
+""" Normalised Deflection """
+
+def normalised_deflection():
+    return
 
 
 """ Utils """
