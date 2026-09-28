@@ -1,11 +1,25 @@
+""" Import modules """
+
 import warnings
 
+import numpy  as np
 import pandas as pd
 import xarray as xr
 import speasy as spz
 
 from pathlib  import Path
 from datetime import datetime, timedelta
+
+
+""" Constants """
+
+r0    = 696_342_000      # Sun's Radius [m]
+omega = 2.9e-6           # Sun’s angular moment taken at the equator [s-1]
+MU0   = 4 * np.pi * 1e-7 # Vacuum permeability [N.A-2]
+KB    = 1.380649e-23     # Boltzman constant [J.K-1]
+mp    = 1.67262192e-27   # Proton mass [kg]
+e     = 1.602176634e-19  # Elementary charge [A.s]
+
 
 """ Get Data """
 
@@ -321,8 +335,103 @@ def load_data(
 
 """ Normalised Deflection """
 
-def normalised_deflection():
-    return
+def _average(time_start, time_end, spacecraft, duration, ref_index):
+
+    interval = timedelta(seconds=duration/2)
+
+    start_extend = time_start - interval
+    stop_extend  = time_end  + interval
+
+    loaders = {
+        "solo": "amda/pas_momgr1_v_rtn",
+        "psp": "amda/psp_spi_Hv"
+    }
+
+    data = spz.get_data(
+        loaders[spacecraft],
+        start_extend,
+        stop_extend
+    ).to_dataframe()['vr']
+
+    data = data.sort_index()
+    data = data[~data.index.duplicated()]
+
+    data_mean = data.rolling(
+        f"{duration}s",
+        center=True
+    ).mean()
+
+    data = data.reindex(ref_index)
+    data_mean = data_mean.reindex(ref_index)
+
+    return data, data_mean
+
+
+def _sliding_window_r(r, n):
+    """
+    Apply a centered sliding-window criterion to normalized deflection z.
+
+    Parameters
+    ----------
+    r : array-like
+        Radial magnetic field time series.
+    n : int
+        Number of points considered on each side of the central point.
+
+    Returns
+    -------
+    result : numpy.ndarray
+        1 if the mean z in the window is > 0.5, 0 otherwise.
+    """
+
+    r = np.asarray(r)
+    result = np.zeros(len(r), dtype=int)
+
+    for i in range(len(r)):
+
+        # Window boundaries
+        start = max(0, i - n)
+        stop  = min(len(r), i + n + 1)
+
+        # Mean z in the window
+        mean_r = np.nanmean(r[start:stop])
+
+        # Classification
+        result[i] = 0 if mean_r > 0 else 1
+
+    return result
+
+
+def normalised_deflection(data):
+    
+    spacecraft = data.attrs.get("spacecraft")
+    start = data.index[0].round('D').to_pydatetime()
+    stop  = data.index[-1].round('D').to_pydatetime()
+    
+    r_sun = data['r_sun']
+    br, bt, bn = data['Br'], data['Bt'], data['Bn']
+    b_mag = np.sqrt(br**2 + bt**2 + bn**2)
+    
+    K = _sliding_window_r(br, 5000)
+
+    # Reconstructing Parker Spiral Angle       
+    r = r_sun - r0  
+
+    vr, vr_mean = _average(start, stop, spacecraft, 3600, data.index)
+    phi_p = np.arctan(np.radians(-(omega*r)/vr_mean)) + K*np.pi
+    
+    # Reconstructing Parker Spiral Field            
+    Bp_r = b_mag * np.cos(phi_p)
+    Bp_t = b_mag * np.sin(phi_p)
+    
+    # Computing delflection                
+    Bt_inverse = 1/(b_mag**2)
+    Bp_Bt = Bp_r*br + Bp_t*bt
+    cos_alpha = Bt_inverse * Bp_Bt
+    
+    z = 0.5*(1-cos_alpha)
+
+    return z
 
 
 """ Utils """
