@@ -459,9 +459,7 @@ def compute_interval_parameters(
     start: datetime,
     stop: datetime,
 ) -> dict:
-    """
-    Compute derived parameters for a catalog interval.
-    """
+    """Compute derived parameters for a catalog interval."""
 
     duration = stop - start
 
@@ -477,79 +475,81 @@ def compute_interval_parameters(
     }
 
 
-def build_catalog(catalog_inputs: list[dict]) -> pd.DataFrame:
+def build_catalog(catalog_input: dict) -> pd.DataFrame:
 
     DATA_LOADERS = {
         "Solar Orbiter": load_data_solo,
         "Parker Solar Probe": load_data_psp,
     }
-    
-    spacecraft_names = {
-        "Solar Orbiter": "SOLO",
-        "Parker Solar Probe": "PSP",
-    }
-    
+
+    spacecraft = list(catalog_input.keys())
+
+    if len(spacecraft) != 1:
+        raise ValueError(
+            "catalog_input must contain exactly one spacecraft."
+        )
+
+    spacecraft = spacecraft[0]
+
+    if spacecraft not in DATA_LOADERS:
+        raise ValueError(f"Unknown spacecraft: {spacecraft}")
+
     catalog = []
 
-    for catalog_input in catalog_inputs:
+    for interval in catalog_input[spacecraft]:
 
-        n_intervals = len(catalog_input["spacecraft"])
+        start, stop = interval["dates"]
+        interval_id = interval.get("id")
 
-        for i in range(n_intervals):
+        print(f"{spacecraft}: {start} -> {stop}")
 
-            spacecraft = catalog_input["spacecraft"][i]
-            start = catalog_input["date_start"][i]
-            stop = catalog_input["date_end"][i]
+        # Load data
+        data = DATA_LOADERS[spacecraft](start, stop)
 
-            print(
-                f"{spacecraft}: "
-                f"{start} -> {stop}"
-            )
+        # Compute parameters
+        parameters = compute_interval_parameters(
+            data,
+            start,
+            stop,
+        )
 
-            if spacecraft not in DATA_LOADERS:
-                raise ValueError(
-                    f"Unknown spacecraft: {spacecraft}"
-                )
+        parameters["spacecraft"] = spacecraft
+        parameters["id"] = interval_id
 
-            # Load
-            data = DATA_LOADERS[spacecraft](start, stop)
-
-            # Derived parameters
-            parameters = compute_interval_parameters(
-                data,
-                start,
-                stop,
-            )
-
-            parameters["spacecraft"] = spacecraft
-
-            catalog.append(parameters)
+        catalog.append(parameters)
 
     catalog = pd.DataFrame(catalog)
 
-    catalog = catalog[
-        [
-            "spacecraft",
-            "date_start",
-            "date_end",
-            "duration",
-            "r_min",
-            "r_max",
-        ]
+    columns = [
+        "spacecraft",
+        "date_start",
+        "date_end",
+        "duration",
+        "r_min",
+        "r_max",
+        "id",
     ]
 
-    catalog = catalog.sort_values(
-        ["spacecraft", "r_min"]
-    ).reset_index(drop=True)
-    
-    catalog["number"] = (
-        catalog.groupby("spacecraft").cumcount() + 1)
-    
-    catalog["id"] = (
-        catalog["spacecraft"].map(spacecraft_names)
-        + "-"
-        + catalog["number"].astype(str).str.zfill(3))
-    
+    catalog = catalog.reindex(columns=columns)
+
+    if not catalog.empty:
+        catalog = (
+            catalog.sort_values("r_min")
+            .reset_index(drop=True)
+        )
+
+        catalog = catalog[
+            [
+                "spacecraft",
+                "date_start",
+                "date_end",
+                "duration",
+                "r_min",
+                "r_max",
+                "id",
+            ]
+        ]
+
     return catalog
 
 
